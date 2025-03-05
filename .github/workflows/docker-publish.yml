@@ -1,16 +1,17 @@
 name: Docker Build and Push
+
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Ubuntu version to build (2004, 2204, 2404)'
+        description: 'Ubuntu version to build'
         required: true
-        default: '2404'
+        default: '24.04'
         type: choice
         options:
-          - '2004'
-          - '2204'
-          - '2404'
+          - '20.04'
+          - '22.04'
+          - '24.04'
 
 jobs:
   build-and-push:
@@ -19,6 +20,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+      
+      # 从模板生成 Dockerfile
+      - name: Generate Dockerfile from template
+        run: |
+          mkdir -p build
+          sed "s/{{UBUNTU_VERSION}}/${{ github.event.inputs.version }}/g" Dockerfile.template > build/Dockerfile
+          echo "Generated Dockerfile:"
+          cat build/Dockerfile
         
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -29,21 +38,10 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       
-      - name: Extract version info
-        id: version_info
-        run: |
-          if [ "${{ github.event.inputs.version }}" == "2004" ]; then
-            echo "tag=20.04" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.inputs.version }}" == "2204" ]; then
-            echo "tag=22.04" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.inputs.version }}" == "2404" ]; then
-            echo "tag=24.04" >> $GITHUB_OUTPUT
-          fi
-      
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
-          context: ./${{ github.event.inputs.version }}
+          context: ./build
           platforms: linux/amd64
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/ubuntu-ssh:${{ steps.version_info.outputs.tag }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/ubuntu-ssh:${{ github.event.inputs.version }}
