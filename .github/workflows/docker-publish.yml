@@ -6,7 +6,7 @@ on:
       version:
         description: 'Ubuntu version to build'
         required: true
-        default: '22.04'
+        default: '24.04'
         type: choice
         options:
           - '20.04'
@@ -21,78 +21,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       
-      # 调试步骤 - 列出目录内容
-      - name: List directory contents
-        run: |
-          echo "Current directory:"
-          ls -la
-      
-      # 检查模板文件是否存在
-      - name: Check if template exists
-        id: check_template
-        run: |
-          if [ -f "Dockerfile.template" ]; then
-            echo "Template file exists"
-            echo "template_exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "Template file does not exist"
-            echo "template_exists=false" >> $GITHUB_OUTPUT
-          fi
-      
       # 从模板生成 Dockerfile
       - name: Generate Dockerfile from template
-        if: steps.check_template.outputs.template_exists == 'true'
         run: |
           mkdir -p build
           sed "s/{{UBUNTU_VERSION}}/${{ github.event.inputs.version }}/g" Dockerfile.template > build/Dockerfile
           echo "Generated Dockerfile:"
-          cat build/Dockerfile
-      
-      # 如果模板不存在，创建 Dockerfile
-      - name: Create Dockerfile if template doesn't exist
-        if: steps.check_template.outputs.template_exists != 'true'
-        run: |
-          mkdir -p build
-          cat > build/Dockerfile << 'EOF'
-          FROM ubuntu:${{ github.event.inputs.version }}
-
-          # 避免交互式前端
-          ENV DEBIAN_FRONTEND=noninteractive
-          # 设置默认密码（可被环境变量覆盖）
-          ENV ROOT_PASSWORD=root
-
-          # 安装SSH服务和必要工具
-          RUN apt-get update && \
-              apt-get install -y openssh-server sudo curl vim && \
-              apt-get clean && \
-              rm -rf /var/lib/apt/lists/*
-
-          # 配置SSH
-          RUN mkdir /var/run/sshd && \
-              sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
-              sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-
-          # SSH登录修复
-          RUN sed -i 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' /etc/pam.d/sshd
-
-          # 设置工作目录
-          WORKDIR /root
-
-          # 创建启动脚本
-          RUN echo '#!/bin/bash\n\
-          echo "root:$ROOT_PASSWORD" | chpasswd\n\
-          exec /usr/sbin/sshd -D\n\
-          ' > /start.sh && \
-              chmod +x /start.sh
-
-          # 暴露SSH端口
-          EXPOSE 22
-
-          # 启动SSH服务
-          CMD ["/start.sh"]
-          EOF
-          
-          echo "Created Dockerfile:"
           cat build/Dockerfile
         
       - name: Set up Docker Buildx
