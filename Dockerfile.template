@@ -1,5 +1,5 @@
-# 这是一个模板，构建时会替换 {{VERSION}} 为实际版本
-FROM ubuntu:{{VERSION}}
+# 这是一个模板，构建时会替换 {{UBUNTU_VERSION}} 为实际版本
+FROM ubuntu:{{UBUNTU_VERSION}}
 
 # 避免交互式前端
 ENV DEBIAN_FRONTEND=noninteractive
