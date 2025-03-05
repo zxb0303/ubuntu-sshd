@@ -1,0 +1,37 @@
+FROM ubuntu:22.04
+
+# 避免交互式前端
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 设置默认密码（可被环境变量覆盖）
+ENV ROOT_PASSWORD=root
+
+# 安装SSH服务和必要工具
+RUN apt-get update && \
+    apt-get install -y openssh-server sudo curl vim && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# 配置SSH
+RUN mkdir /var/run/sshd && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+# SSH登录修复
+RUN sed -i 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' /etc/pam.d/sshd
+
+# 设置工作目录
+WORKDIR /root
+
+# 创建启动脚本
+RUN echo '#!/bin/bash\n\
+echo "root:$ROOT_PASSWORD" | chpasswd\n\
+exec /usr/sbin/sshd -D\n\
+' > /start.sh && \
+    chmod +x /start.sh
+
+# 暴露SSH端口
+EXPOSE 22
+
+# 启动SSH服务
+CMD ["/start.sh"]
